@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Skybreak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;600;700&display=swap">
+<style>
+/* Layout: full-screen arena canvas; HUD top, move tray bottom-left, camera monitor bottom-right. Dark arcade look. */
+:root {
+  --ink: #081118; --panel: #0f1c25; --panel2: #142834; --line: #24404d;
+  --text: #eaf4f2; --muted: #8fb0b0; --energy: #ffd23a; --hot: #ff4f6d; --good: #49e39a; --surge: #8affd6;
+  --display: "Bungee", Impact, "Arial Black", sans-serif;
+  --ui: "Chakra Petch", "Arial Narrow", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--ink); color: var(--text); font-family: var(--ui); font-size: 16px; overflow: hidden; user-select: none; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+[hidden] { display: none !important; }
+button { font-family: inherit; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--good); outline-offset: 2px; }
+code { font: 600 13px ui-monospace, Menlo, monospace; color: var(--text); background: #08131a; padding: 1px 5px; }
+
+/* HUD */
+#hud { position: fixed; top: 0; left: 0; right: 0; display: grid; grid-template-columns: 1fr auto 1fr; gap: 18px; padding: 12px max(16px, 2.5vw); pointer-events: none; align-items: start; }
+.pl { display: grid; grid-template-columns: 60px 1fr; gap: 10px; align-items: center; }
+.pl.right { grid-template-columns: 1fr 60px; }
+.pl.right .face { order: 2; }
+.face { width: 60px; height: 60px; border: 2px solid var(--line); background: var(--panel); }
+.bars { display: grid; gap: 3px; min-width: 0; }
+.nmrow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.right .nmrow { flex-direction: row-reverse; }
+.nm { font-family: var(--display); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.forms { color: var(--surge); font-size: 13px; letter-spacing: .1em; }
+.hp { position: relative; height: 18px; background: #0b1820; border: 2px solid #000; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+.hp i, .hp s { position: absolute; top: 0; bottom: 0; left: 0; width: 100%; }
+.hp s { background: #fff3; transition: width .6s ease .25s; }
+.hp i { background: linear-gradient(180deg, #8dffbf, #23b26a); transition: width .1s; }
+.right .hp, .right .ki, .right .surge { transform: scaleX(-1); }
+.ki, .surge { position: relative; height: 8px; background: #0b1820; border: 1px solid #000; overflow: hidden; }
+.ki i, .surge i { position: absolute; inset: 0 auto 0 0; width: 0; }
+.ki i { background: linear-gradient(90deg, #ffb31a, var(--energy)); }
+.surge i { background: linear-gradient(90deg, #3fb894, var(--surge)); }
+.ki::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), #000 calc(25% - 2px) 25%); }
+.surge.full i { animation: pulse .4s infinite alternate; }
+@keyframes pulse { to { filter: brightness(1.6); } }
+.timer { font-family: var(--display); font-size: 40px; line-height: 1; text-align: center; min-width: 2.4ch; font-variant-numeric: tabular-nums; text-shadow: 0 3px 0 #000; }
+
+/* Move tray */
+#tray { position: fixed; left: 16px; bottom: 16px; display: flex; gap: 6px; pointer-events: none; max-width: calc(100vw - 340px); flex-wrap: wrap; }
+.mv { display: grid; grid-template-columns: 44px auto; gap: 2px 8px; align-items: center; padding: 6px 10px 6px 6px; background: rgba(8,17,24,.85); border: 1px solid var(--line); }
+.mv canvas { grid-row: span 2; width: 44px; height: 44px; }
+.mv b { font-family: var(--display); font-weight: 400; font-size: 12px; white-space: nowrap; }
+.mv span { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.mv .prog { grid-column: 1 / -1; height: 4px; background: #1d3340; }
+.mv .prog i { display: block; height: 100%; width: 0; background: var(--energy); }
+.mv.tf .prog i { background: var(--surge); }
+.mv.armed { border-color: var(--good); background: rgba(10,60,36,.9); }
+.mv.armed span { color: var(--good); font-weight: 700; }
+.mv.locked { opacity: .5; }
+#toast { position: fixed; left: 50%; bottom: 120px; transform: translateX(-50%); background: rgba(8,17,24,.92); border: 1px solid var(--line); padding: 6px 14px; font-weight: 600; pointer-events: none; z-index: 7; text-align: center; max-width: 90vw; }
+
+/* Camera monitor */
+#pip { position: fixed; right: 16px; bottom: 16px; width: 300px; background: #000; border: 2px solid var(--line); z-index: 6; transition: all .3s ease; }
+#pip.big { right: 50%; bottom: 50%; transform: translate(50%, 58%); width: min(600px, 92vw); }
+#pipc { display: block; width: 100%; aspect-ratio: 4 / 3; }
+.pmeta { display: grid; gap: 4px; padding: 6px 8px; background: #0b151c; font-size: 13px; }
+.pstate { font-family: var(--display); font-size: 13px; color: var(--energy); min-height: 1.2em; }
+.legend { color: var(--muted); font-size: 12px; }
+.legend b { color: var(--hot); } .legend i { color: var(--good); font-style: normal; font-weight: 700; }
+.lost { color: var(--hot); font-weight: 700; }
+
+/* Overlays */
+.overlay { position: fixed; inset: 0; z-index: 5; overflow-y: auto; background: radial-gradient(ellipse at 50% 20%, rgba(20,60,70,.55), rgba(4,9,13,.93) 70%); padding: 22px max(16px, 3vw); }
+.menu { width: min(1240px, 100%); margin: 0 auto; display: grid; gap: 16px; }
+.mhead { display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: end; justify-content: space-between; }
+.kicker { margin: 0; color: var(--energy); font-weight: 700; letter-spacing: .2em; text-transform: uppercase; font-size: 13px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(44px, 7vw, 84px); line-height: .9; }
+h1 span { color: var(--energy); }
+h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(28px, 4vw, 46px); line-height: .95; text-wrap: balance; }
+h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 15px; }
+.lede { margin: 0; color: var(--muted); max-width: 58ch; line-height: 1.4; }
+.roster { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 1000px) { .roster { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.pick { appearance: none; border: 2px solid var(--line); background: var(--panel); color: var(--text); padding: 0 0 8px; cursor: pointer; display: grid; gap: 2px; text-align: center; transition: transform .12s; }
+.pick canvas { width: 100%; aspect-ratio: 240 / 270; display: block; }
+.pick b { font-family: var(--display); font-weight: 400; font-size: 13px; }
+.pick span { color: var(--muted); font-size: 12px; }
+.pick:hover { transform: translateY(-2px); }
+.pick[aria-pressed="true"] { border-color: var(--energy); box-shadow: 0 0 0 2px var(--energy), 0 0 30px rgba(255,210,58,.25); }
+.cols { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 900px) { .cols { grid-template-columns: minmax(0, 1fr); } }
+.panel { background: var(--panel); border: 1px solid var(--line); padding: 16px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.dname { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+.dname span { color: var(--muted); }
+.stats { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: center; font-size: 13px; color: var(--muted); max-width: 320px; }
+.stat { height: 6px; background: #1d3340; } .stat i { display: block; height: 100%; background: var(--energy); }
+.moves { display: grid; gap: 8px; }
+.move { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 12px; align-items: center; background: var(--panel2); border: 1px solid var(--line); padding: 8px; }
+.move canvas { width: 70px; height: 70px; background: #0a161d; }
+.move b { font-family: var(--display); font-weight: 400; font-size: 14px; }
+.move .tag { display: inline-block; margin-left: 6px; font: 700 11px var(--ui); letter-spacing: .08em; padding: 1px 6px; background: var(--energy); color: #1a1400; vertical-align: 2px; }
+.move .tag.ult { background: var(--hot); color: #fff; } .move .tag.sup { background: #c7a8ff; color: #1a0a30; }
+.move p { margin: 2px 0 0; color: var(--muted); font-size: 14px; line-height: 1.35; }
+.move p strong { color: var(--text); font-weight: 600; }
+.basics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 520px) { .basics { grid-template-columns: minmax(0, 1fr); } }
+.stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 700px) { .stages { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.stg { appearance: none; border: 2px solid var(--line); background: var(--panel); color: var(--text); padding: 0 0 6px; cursor: pointer; display: grid; gap: 4px; font-weight: 600; font-size: 13px; }
+.stg canvas { width: 100%; aspect-ratio: 200 / 90; display: block; }
+.stg[aria-pressed="true"] { border-color: var(--energy); }
+.opts { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; color: var(--muted); }
+.opts label { display: flex; gap: 8px; align-items: center; }
+.seg { display: flex; border: 1px solid var(--line); }
+.seg label { padding: 6px 12px; cursor: pointer; color: var(--muted); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label:has(input:checked) { background: var(--energy); color: #1a1400; font-weight: 700; }
+.seg label:has(input:focus-visible) { outline: 3px solid var(--good); }
+select, input[type=range] { accent-color: var(--energy); font: 600 15px var(--ui); }
+select { background: #08131a; color: var(--text); border: 1px solid var(--line); padding: 4px 8px; }
+.music { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.music button { background: #08131a; color: var(--text); border: 1px solid var(--line); padding: 4px 10px; cursor: pointer; }
+#nowPlaying { color: var(--energy); font-weight: 600; }
+#phoneBox { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+#qr { background: #eaf4f2; padding: 6px; line-height: 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 10px; }
+.big { font: 400 18px var(--display); padding: 14px 22px; border: 2px solid var(--text); background: transparent; color: var(--text); cursor: pointer; }
+.big.primary { background: var(--energy); border-color: var(--energy); color: #1a1400; }
+.big:hover { filter: brightness(1.12); }
+.big:disabled { opacity: .55; cursor: wait; }
+.fine { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.fine b { color: var(--text); }
+.netrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.or { color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+#joinCode { font: 400 20px var(--display); letter-spacing: .2em; width: 8.5ch; padding: 12px; background: #08131a; color: var(--text); border: 2px solid var(--line); text-transform: uppercase; }
+.code { font-family: var(--display); font-weight: 400; color: var(--energy); letter-spacing: .15em; font-size: 20px; }
+.netshare { display: flex; gap: 8px; flex-wrap: wrap; }
+.netshare input { flex: 1 1 260px; min-width: 0; background: #08131a; color: var(--text); border: 1px solid var(--line); padding: 8px; font: 600 14px var(--ui); }
+.netshare button { background: var(--energy); color: #1a1400; border: 0; padding: 8px 14px; font: 700 14px var(--ui); cursor: pointer; }
+kbd { font: 700 12px var(--ui); border: 1px solid var(--line); padding: 0 5px; color: var(--text); }
+.err { margin: 0; color: #ff9aaa; font-size: 15px; line-height: 1.4; }
+#setup { display: grid; place-items: start center; background: rgba(4,9,13,.88); }
+#setup .box { text-align: center; display: grid; gap: 10px; justify-items: center; max-width: 640px; }
+#setupMsg { font-size: 18px; margin: 0; }
+.prog2 { height: 8px; background: #1d3340; width: min(420px, 80vw); }
+.prog2 i { display: block; height: 100%; width: 0; background: var(--good); }
+#result { display: grid; place-items: center; }
+.rcard { width: min(680px, 100%); background: var(--panel); border: 2px solid var(--line); padding: 28px; display: grid; gap: 16px; }
+.rstats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.rstats div { background: var(--panel); padding: 10px 12px; }
+.rstats b { display: block; font-family: var(--display); font-weight: 400; font-size: 24px; font-variant-numeric: tabular-nums; }
+.rstats span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+@media (prefers-reduced-motion: reduce) { #pip, .pick { transition: none; } .surge.full i { animation: none; } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud" hidden>
+  <div class="pl" id="pl1"><canvas class="face" width="120" height="120"></canvas><div class="bars"><div class="nmrow"><div class="nm"></div><span class="forms"></span></div><div class="hp"><s></s><i></i></div><div class="ki"><i></i></div><div class="surge"><i></i></div></div></div>
+  <div class="timer" id="timer">99</div>
+  <div class="pl right" id="pl2"><canvas class="face" width="120" height="120"></canvas><div class="bars"><div class="nmrow"><div class="nm"></div><span class="forms"></span></div><div class="hp"><s></s><i></i></div><div class="ki"><i></i></div><div class="surge"><i></i></div></div></div>
+</div>
+<div id="tray" hidden></div>
+<div id="toast" hidden></div>
+
+<div id="pip" hidden>
+  <canvas id="pipc" width="320" height="240"></canvas>
+  <div class="pmeta">
+    <div class="pstate" id="pstate"></div>
+    <div class="legend">Arm bars: punch counts at the <b>red</b> mark, resets below the <i>green</i> one.</div>
+    <div class="lost" id="lost" hidden>Can’t see you. Step back so your head, shoulders and hands are in frame.</div>
+  </div>
+</div>
+<video id="cam" playsinline muted hidden></video>
+
+<section id="menu" class="overlay">
+  <div class="menu">
+    <div class="mhead">
+      <div><p class="kicker">Webcam energy fighter</p><h1>SKY<span>BREAK</span></h1></div>
+      <p class="lede">Punch, block and teleport with your body. Cast hand signs. Power up through three forms. Eight fighters, each with four moves and their own gestures.</p>
+    </div>
+    <div class="roster" id="roster" role="group" aria-label="Choose your fighter"></div>
+    <div class="cols">
+      <div class="panel" id="detail"></div>
+      <div class="panel">
+        <h3>Everyone can</h3>
+        <div class="basics" id="basics"></div>
+        <p class="fine"><b>Surge</b> fills as you land and take hits. When it’s full, hold the charge pose to transform. Each form makes you stronger and unlocks new moves: <b>Ascended</b> unlocks your ultimate, <b>Apex</b> unlocks your super.</p>
+      </div>
+    </div>
+    <div class="panel">
+      <h3>Stage</h3>
+      <div class="stages" id="stages"></div>
+      <div class="music">
+        <label for="music">Music</label><select id="music"></select>
+        <button id="musicPrev" type="button" aria-label="Previous track">◀</button><button id="musicNext" type="button" aria-label="Next track">▶</button>
+        <label for="musicVol">Volume</label><input id="musicVol" type="range" min="0" max="1" step="0.05" value="0.55">
+        <span id="nowPlaying">Click anywhere to start the music</span>
+      </div>
+    </div>
+    <div class="panel" id="online">
+      <h3>Play online · 2 players</h3>
+      <p class="fine">Each player opens this page on their own laptop. One hosts and shares the room code, the other joins. Pick your fighter first; the host picks the stage.</p>
+      <div class="netrow">
+        <button id="btnHost" class="big" type="button">Host a match</button>
+        <span class="or">or</span>
+        <label for="joinCode" class="sr">Room code</label>
+        <input id="joinCode" type="text" placeholder="CODE" maxlength="5" autocomplete="off" spellcheck="false">
+        <button id="btnJoin" class="big" type="button">Join</button>
+      </div>
+      <p id="netStatus" class="fine" aria-live="polite"></p>
+      <div id="netShare" class="netshare" hidden><input id="netLink" type="text" readonly aria-label="Invite link"><button id="btnCopy" type="button">Copy link</button></div>
+    </div>
+    <div class="panel">
+      <h3>Movement</h3>
+      <div class="seg" role="radiogroup" aria-label="Movement">
+        <label><input type="radio" name="move" value="auto" checked> Autopilot</label>
+        <label><input type="radio" name="move" value="phone"> Phone joystick</label>
+        <label><input type="radio" name="move" value="none"> Teleports only</label>
+      </div>
+      <p class="fine"><b>Autopilot</b> keeps your fighter at their best range and height. You decide when to Rush in or Vanish out. <b>Phone joystick</b> lets you steer with your phone in one hand. A gamepad or <kbd>WASD</kbd> always overrides.</p>
+      <div id="phoneBox"></div>
+    </div>
+    <div class="panel">
+      <div class="opts">
+        <label for="diff">Rival <select id="diff"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select></label>
+        <label for="track">Tracking <select id="track"><option value="fast" selected>Fast</option><option value="accurate">Accurate</option></select></label>
+        <label for="sens">Punch sensitivity <input id="sens" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
+        <label for="bodySens">Body-move sensitivity <input id="bodySens" type="range" min="0.6" max="1.6" step="0.05" value="1"></label>
+        <label for="training"><input id="training" type="checkbox"> Training (rival stands still)</label>
+      </div>
+      <div class="btns">
+        <button id="btnCam" class="big primary" type="button">Fight with camera</button>
+        <button id="btnKeys" class="big" type="button">Fight with keyboard</button>
+      </div>
+      <p class="fine">Stand about 2 m back with room to raise your arms. Keyboard: <kbd>WASD</kbd> move · <kbd>J</kbd> punch · <kbd>K</kbd> guard · <kbd>L</kbd> charge · <kbd>Q</kbd> vanish · <kbd>E</kbd> rush · <kbd>Space</kbd> blink · <kbd>U</kbd> <kbd>O</kbd> specials · <kbd>I</kbd> ultimate · <kbd>P</kbd> super · <kbd>T</kbd> transform · <kbd>M</kbd> mute · <kbd>N</kbd> next song · <kbd>Esc</kbd> menu</p>
+      <p id="camErr" class="err" hidden></p>
+    </div>
+  </div>
+</section>
+
+<section id="setup" class="overlay" hidden>
+  <div class="box">
+    <h2 id="setupTitle">Get in frame</h2>
+    <p id="setupMsg">Step back until your head, shoulders and both hands are visible.</p>
+    <div class="prog2"><i id="setupBar"></i></div>
+    <div class="btns" id="setupBtns"></div>
+  </div>
+</section>
+
+<section id="result" class="overlay" hidden>
+  <div class="rcard">
+    <p class="kicker" id="resKicker">Result</p>
+    <h2 id="resTitle">You win</h2>
+    <div class="rstats" id="resStats"></div>
+    <div class="btns">
+      <button id="btnAgain" class="big primary" type="button">Rematch</button>
+      <button id="btnMenu" class="big" type="button">Main menu</button>
+    </div>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tracking.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

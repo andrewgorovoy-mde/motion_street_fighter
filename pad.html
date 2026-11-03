@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Skybreak Pad</title>
+<style>
+:root { --ink: #081118; --line: #24404d; --text: #eaf4f2; --muted: #8fb0b0; --energy: #ffd23a; --hot: #ff4f6d; --good: #49e39a; --surge: #8affd6; color-scheme: dark; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; background: var(--ink); color: var(--text); font: 600 15px system-ui, sans-serif; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+.wrap { height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 10px; padding: max(12px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); }
+.top { display: grid; gap: 6px; }
+.row { display: flex; justify-content: space-between; align-items: center; }
+#status { color: var(--muted); font-size: 13px; }
+#status.ok { color: var(--good); }
+.bar { height: 8px; background: #13232c; } .bar i { display: block; height: 100%; width: 0; transition: width .15s; }
+#hp i { background: linear-gradient(90deg, #23b26a, #8dffbf); } #ki i { background: var(--energy); } #sg i { background: var(--surge); } #ehp i { background: var(--hot); }
+.lbl { display: grid; grid-template-columns: 52px 1fr; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+#stick { position: relative; border: 2px solid var(--line); border-radius: 50%; width: min(78vw, 58vh); aspect-ratio: 1; justify-self: center; align-self: center; background: radial-gradient(circle, #13232c, #0b161d); }
+#knob { position: absolute; width: 34%; aspect-ratio: 1; border-radius: 50%; left: 33%; top: 33%; background: radial-gradient(circle at 35% 30%, #ffe48a, #c89a10); box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+.btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.btns button { font: 700 14px system-ui; padding: 18px 4px; border: 2px solid var(--line); background: #0f1c25; color: var(--text); border-radius: 12px; }
+.btns button.on { background: var(--energy); color: #1a1400; border-color: var(--energy); }
+#tf { color: var(--surge); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="row"><b>SKYBREAK PAD</b><span id="status">Connecting…</span></div>
+    <div class="lbl">You<div class="bar" id="hp"><i></i></div></div>
+    <div class="lbl">Ki<div class="bar" id="ki"><i></i></div></div>
+    <div class="lbl">Surge<div class="bar" id="sg"><i></i></div></div>
+    <div class="lbl">Rival<div class="bar" id="ehp"><i></i></div></div>
+  </div>
+  <div id="stick"><div id="knob"></div></div>
+  <div class="btns">
+    <button data-b="vanish">Vanish</button>
+    <button data-b="rush">Rush</button>
+    <button data-b="guard">Guard</button>
+    <button data-b="transform" id="tf">Power up</button>
+  </div>
+</div>
+<script>
+const stick = document.getElementById('stick'), knob = document.getElementById('knob');
+const state = { x: 0, y: 0, b: new Set() };
+let sid = null, lastSent = '';
+function send(force) {
+  const body = JSON.stringify({ x: +state.x.toFixed(3), y: +state.y.toFixed(3), b: [...state.b] });
+  if (!force && body === lastSent) return;
+  lastSent = body;
+  fetch('/relay/pad', { method: 'POST', body, keepalive: true }).catch(() => {});
+}
+setInterval(() => send(true), 120);
+function moveKnob(cx, cy) {
+  const r = stick.getBoundingClientRect(), R = r.width / 2;
+  let dx = cx - (r.left + R), dy = cy - (r.top + R); const d = Math.hypot(dx, dy), max = R * 0.62;
+  if (d > max) { dx *= max / d; dy *= max / d; }
+  knob.style.transform = `translate(${dx}px, ${dy}px)`;
+  state.x = dx / max; state.y = dy / max; send();
+}
+stick.addEventListener('pointerdown', e => { sid = e.pointerId; stick.setPointerCapture(sid); moveKnob(e.clientX, e.clientY); });
+stick.addEventListener('pointermove', e => { if (e.pointerId === sid) moveKnob(e.clientX, e.clientY); });
+const release = e => { if (e.pointerId !== sid) return; sid = null; knob.style.transform = ''; state.x = state.y = 0; send(); };
+stick.addEventListener('pointerup', release); stick.addEventListener('pointercancel', release);
+document.querySelectorAll('[data-b]').forEach(btn => {
+  const b = btn.dataset.b;
+  btn.addEventListener('pointerdown', e => { e.preventDefault(); state.b.add(b); btn.classList.add('on'); send(); navigator.vibrate && navigator.vibrate(15); });
+  const up = () => { state.b.delete(b); btn.classList.remove('on'); send(); };
+  btn.addEventListener('pointerup', up); btn.addEventListener('pointercancel', up); btn.addEventListener('pointerleave', up);
+});
+const es = new EventSource('/relay/feedback'), st = document.getElementById('status');
+let lastHp = 100, lastMsg = 0;
+es.onopen = () => { st.textContent = 'Connected. Waiting for a fight'; st.className = 'ok'; };
+es.onerror = () => { st.textContent = 'Reconnecting…'; st.className = ''; };
+es.onmessage = m => {
+  try {
+    const d = JSON.parse(m.data); lastMsg = Date.now();
+    for (const [id, v] of [['hp', d.hp], ['ki', d.ki], ['sg', d.surge], ['ehp', d.ehp]]) document.querySelector('#' + id + ' i').style.width = v + '%';
+    st.textContent = ['Base', 'Ascended', 'Apex'][d.form] + ' form'; st.className = 'ok';
+    if (d.hp < lastHp - 1 && navigator.vibrate) navigator.vibrate(d.hp < lastHp - 8 ? 120 : 40);
+    lastHp = d.hp;
+  } catch (e) { /* ignore */ }
+};
+</script>
+</body>
+</html>
