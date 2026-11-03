@@ -135,6 +135,13 @@ select { background: #08131a; color: var(--text); border: 1px solid var(--line);
 .big:disabled { opacity: .55; cursor: wait; }
 .fine { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
 .fine b { color: var(--text); }
+.combos { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.combo { background: var(--panel2); border: 1px solid var(--line); padding: 10px; display: grid; gap: 4px; }
+.combo .seq { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.combo .seq span { font: 700 11px var(--ui); letter-spacing: .06em; padding: 2px 6px; border: 1px solid var(--energy); color: var(--energy); }
+.combo .seq i { color: var(--muted); font-style: normal; }
+.combo b { font-family: var(--display); font-weight: 400; font-size: 14px; }
+.combo p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .netrow { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .or { color: var(--muted); }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
@@ -190,10 +197,15 @@ kbd { font: 700 12px var(--ui); border: 1px solid var(--line); padding: 0 5px; c
     <div class="cols">
       <div class="panel" id="detail"></div>
       <div class="panel">
-        <h3>Everyone can</h3>
+        <h3>Every fighter’s moves</h3>
         <div class="basics" id="basics"></div>
         <p class="fine"><b>Surge</b> fills as you land and take hits. When it’s full, hold the charge pose to transform. Each form makes you stronger and unlocks new moves: <b>Ascended</b> unlocks your ultimate, <b>Apex</b> unlocks your super.</p>
       </div>
+    </div>
+    <div class="panel">
+      <h3>Combos · every fighter</h3>
+      <p class="fine">Chain strikes within a second of each other. The last strike turns into a finisher, and if your rival is out of reach you dash in to land it.</p>
+      <div class="combos" id="combos"></div>
     </div>
     <div class="panel">
       <h3>Stage</h3>
@@ -240,7 +252,7 @@ kbd { font: 700 12px var(--ui); border: 1px solid var(--line); padding: 0 5px; c
         <button id="btnCam" class="big primary" type="button">Fight with camera</button>
         <button id="btnKeys" class="big" type="button">Fight with keyboard</button>
       </div>
-      <p class="fine">Stand about 2 m back with room to raise your arms. Keyboard: <kbd>WASD</kbd> move · <kbd>J</kbd> punch · <kbd>K</kbd> guard · <kbd>L</kbd> charge · <kbd>Q</kbd> vanish · <kbd>E</kbd> rush · <kbd>Space</kbd> blink · <kbd>U</kbd> <kbd>O</kbd> specials · <kbd>I</kbd> ultimate · <kbd>P</kbd> super · <kbd>T</kbd> transform · <kbd>M</kbd> mute · <kbd>N</kbd> next song · <kbd>Esc</kbd> menu</p>
+      <p class="fine">Stand about 2 m back with room to raise your arms. Keyboard: <kbd>WASD</kbd> move · <kbd>J</kbd> jab · <kbd>K</kbd> cross · <kbd>L</kbd> hook · <kbd>I</kbd> uppercut · <kbd>U</kbd> hammer · <kbd>H</kbd> knee · <kbd>Y</kbd> twin palm · <kbd>G</kbd> guard · <kbd>C</kbd> charge · <kbd>Q</kbd> vanish · <kbd>E</kbd> rush · <kbd>Space</kbd> blink · <kbd>1</kbd>–<kbd>4</kbd> specials · <kbd>T</kbd> transform · <kbd>M</kbd> mute · <kbd>]</kbd> next song · <kbd>Esc</kbd> menu</p>
       <p id="camErr" class="err" hidden></p>
     </div>
   </div>

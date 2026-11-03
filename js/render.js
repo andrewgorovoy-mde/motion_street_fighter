@@ -37,6 +37,10 @@ const POSES = {
   castOne:{ neck: [2, -64], head: [5, -86], fe: [17, -103], fh: [24, -139], be: [-4, -36], bh: [20, -54], ...LEG.idle },
   castSpread: { neck: [0, -64], head: [2, -88], fe: [36, -64], fh: [73, -68], be: [-34, -64], bh: [-71, -68], ...LEG.wide },
   hurt:   { neck: [-13, -60], head: [-19, -80], fe: [-4, -32], fh: [-24, -15], be: [-28, -45], bh: [-52, -62], ...LEG.hurt },
+  hook:   { neck: [12, -62], head: [16, -84], fe: [34, -74], fh: [66, -66], be: [-4, -36], bh: [18, -54], ...LEG.brace },
+  upper:  { neck: [9, -60], head: [12, -82], fe: [32, -34], fh: [50, -98], be: [-4, -36], bh: [18, -54], fk: [22, 24], ff: [20, 62], bk: [-18, 28], bf: [-36, 58] },
+  chop:   { neck: [14, -60], head: [18, -81], fe: [44, -86], fh: [74, -48], be: [-6, -36], bh: [16, -52], ...LEG.brace },
+  knee:   { neck: [6, -64], head: [9, -86], fe: [26, -40], fh: [36, -60], be: [-4, -38], bh: [20, -56], fk: [34, -12], ff: [30, 28], bk: [-8, 30], bf: [-16, 64] },
   victory:{ neck: [2, -66], head: [4, -89], fe: [14, -100], fh: [16, -136], be: [-10, -40], bh: [6, -22], ...LEG.idle },
 };
 const JOINTS = Object.keys(POSES.idle);
@@ -520,6 +524,12 @@ const MAN = {
   tpose:  [[22, 31], [7, 31], [78, 31], [93, 31]],
   xburst: [[34, 46], [60, 24], [66, 46], [40, 24]],
   flurry: [[34, 46], [42, 34], [64, 42], [54, 36]],
+  jab:    [[36, 42], [46, 36], [66, 46], [58, 30]],
+  hook:   [[34, 46], [42, 32], [76, 28], [88, 40]],
+  upper:  [[34, 46], [42, 32], [68, 52], [60, 24]],
+  chop:   [[34, 46], [42, 32], [70, 18], [80, 46]],
+  knee:   [[34, 46], [42, 32], [66, 46], [58, 32]],
+  twin:   [[38, 42], [47, 37], [62, 42], [53, 37]],
   duck:   [[34, 56], [42, 44], [64, 56], [56, 44]],
   lunge:  [[34, 46], [42, 34], [64, 46], [56, 34]],
   hop:    [[34, 46], [42, 34], [64, 46], [56, 34]],
@@ -542,16 +552,25 @@ function drawMan(cnv, key, accent = '#ffd23a') {
   c.beginPath(); c.arc(50, 16, 7.5, 0, Math.PI * 2); c.fill();
   c.beginPath(); c.moveTo(50, 24); c.lineTo(50, 60); c.moveTo(38, 30); c.lineTo(62, 30); c.moveTo(43, 60); c.lineTo(57, 60);
   if (key === 'duck') { c.moveTo(43, 60); c.lineTo(32, 70); c.lineTo(40, 82); c.moveTo(57, 60); c.lineTo(68, 70); c.lineTo(60, 82); }
+  else if (key === 'knee') { c.moveTo(43, 60); c.lineTo(41, 94); c.moveTo(57, 60); c.lineTo(70, 62); c.lineTo(62, 84); }
   else { c.moveTo(43, 60); c.lineTo(41, 94); c.moveTo(57, 60); c.lineTo(59, 94); }
   c.stroke();
   c.strokeStyle = accent; c.fillStyle = accent;
   c.beginPath(); c.moveTo(38, 30); c.lineTo(...m[0]); c.lineTo(...m[1]); c.moveTo(62, 30); c.lineTo(...m[2]); c.lineTo(...m[3]); c.stroke();
-  const big = key === 'punch' || key === 'flurry';
-  c.beginPath(); c.arc(...m[1], 4.5, 0, Math.PI * 2); c.fill();
+  const big = key === 'punch' || key === 'flurry' || key === 'cross';
+  const bigL = key === 'jab';
+  c.beginPath(); c.arc(...m[1], bigL ? 8 : 4.5, 0, Math.PI * 2); c.fill();
   c.beginPath(); c.arc(...m[3], big ? 8 : 4.5, 0, Math.PI * 2); c.fill();
   c.restore();
   c.lineWidth = 2.5; c.strokeStyle = accent; c.fillStyle = accent;
-  if (big) for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; c.beginPath(); c.moveTo(54 + Math.cos(a) * 12, 36 + Math.sin(a) * 12); c.lineTo(54 + Math.cos(a) * 17, 36 + Math.sin(a) * 17); c.stroke(); }
+  const burst = (bx, by) => { for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; c.beginPath(); c.moveTo(bx + Math.cos(a) * 12, by + Math.sin(a) * 12); c.lineTo(bx + Math.cos(a) * 17, by + Math.sin(a) * 17); c.stroke(); } };
+  if (big) burst(...m[3]);
+  if (bigL) burst(...m[1]);
+  if (key === 'hook') { c.beginPath(); c.arc(70, 40, 22, -2.6, -0.6); c.stroke(); iconArrow(c, 84, 22, 90, 30); }
+  if (key === 'upper') iconArrow(c, 76, 56, 76, 16);
+  if (key === 'chop') iconArrow(c, 90, 12, 90, 52);
+  if (key === 'knee') iconArrow(c, 82, 92, 82, 62);
+  if (key === 'twin') { c.beginPath(); c.arc(50, 37, 12, 0, Math.PI * 2); c.stroke(); c.beginPath(); c.arc(50, 37, 19, 0, Math.PI * 2); c.stroke(); }
   if (key === 'flurry') { c.font = '700 18px sans-serif'; c.fillText('×4', 72, 20); }
   if (key === 'palms') { c.beginPath(); c.arc(50, 40, 11, 0, Math.PI * 2); c.stroke(); c.beginPath(); c.arc(50, 40, 17, 0, Math.PI * 2); c.stroke(); }
   if (key === 'overhead' || key === 'oneup') iconArrow(c, 86, 8, 86, 44);

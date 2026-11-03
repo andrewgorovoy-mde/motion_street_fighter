@@ -81,7 +81,7 @@ function trackFrame(now, dt, ctxInfo) {
 }
 
 /* ---------------- pose features ---------------- */
-const USE = [0, 2, 5, 11, 12, 13, 14, 15, 16, 19, 20];
+const USE = [0, 2, 5, 11, 12, 13, 14, 15, 16, 19, 20, 23, 24, 25, 26];
 function trackFeatures(lm) {
   const vw = Track.video?.videoWidth || 640, vh = Track.video?.videoHeight || 480;
   // median of the last 3 frames per landmark kills one-frame glitches
@@ -94,7 +94,7 @@ function trackFeatures(lm) {
   }
   const ls = P[11], rs = P[12];
   const sw = Math.max(20, Math.hypot(ls.x - rs.x, ls.y - rs.y));
-  return { n: P[0], eyeL: P[2], eyeR: P[5], ls, rs, le: P[13], re: P[14], lw: P[15], rw: P[16], li: P[19], ri: P[20],
+  return { n: P[0], eyeL: P[2], eyeR: P[5], ls, rs, le: P[13], re: P[14], lw: P[15], rw: P[16], li: P[19], ri: P[20], hl: P[23], hr: P[24], kl: P[25], kr: P[26],
     sw, shX: (ls.x + rs.x) / 2, shY: (ls.y + rs.y) / 2, vw, vh,
     body: P[0].v > 0.5 && ls.v > 0.5 && rs.v > 0.5, okL: P[15].v > 0.5 && P[13].v > 0.4, okR: P[16].v > 0.5 && P[14].v > 0.4 };
 }
@@ -181,12 +181,16 @@ function trackPose(res, now, dt, info) {
   B.charge = elbowsLow && (!okL || L.y > shY + 1.0 * sw) && (!okR || R.y > shY + 1.0 * sw);
   B.handsBelow = (!okL || L.y > shY - 0.1 * sw) && (!okR || R.y > shY - 0.1 * sw);
 
-  // arm extension scores
+  // arm extension scores + wrist history
   for (const side of ['L', 'R']) {
-    const A = T.arms[side], wy = side === 'L' ? L.y : R.y;
+    const A = T.arms[side], w = side === 'L' ? L : R, ok = side === 'L' ? okL : okR;
     A.e = armScore(side);
-    A.ys = A.ys || []; A.ys.push({ t: now, y: wy }); while (A.ys.length && now - A.ys[0].t > 130) A.ys.shift();
-    A.rise = (A.ys[0].y - wy) / sw;                    // how far the wrist went UP in the last ~0.1 s
+    A.wh = A.wh || [];
+    if (ok) A.wh.push({ t: now, x: w.x, y: w.y, z: w.z }); else A.wh.length = 0;
+    while (A.wh.length && now - A.wh[0].t > 420) A.wh.shift();
+    const recent = A.wh.filter(q => now - q.t <= 130);
+    A.rise = recent.length ? (recent[0].y - w.y) / sw : 0;
+    A.upT = A.upT || -1e9; A.chopT = A.chopT || -1e9;
   }
 
   // gestures bound to the current fighter
@@ -196,10 +200,20 @@ function trackPose(res, now, dt, info) {
   const anyArmed = Object.values(T.gs).some(s => s.armed);
   const palmsHeld = T.binds.gest.palms && T.gs[T.binds.gest.palms] && T.gs[T.binds.gest.palms].hold > 0.12;
 
-  // punches: count each guard → extended transition once
   const suppressAll = fired || now < T.specialLock || T.crossT > 0.08 || palmsHeld || B.overhead || B.tpose || B.charge || anyArmed;
-  // A punch fires the moment an arm crosses into "extended". Only if the other arm is rising at the
-  // same instant (arms spreading or going up together) do we wait up to 80 ms to see if it's a gesture.
+  const fire = kind => { T.events.push(kind); T.punchTimes.push(now); T.lastStrike = { kind, t: now }; };
+  // straight (jab / cross) vs hook, decided from where the wrist travelled in the last quarter second
+  const classify = side => {
+    const A = T.arms[side], { wr } = armParts(side);
+    const o = A.wh.find(q => now - q.t <= 260);
+    if (o) {
+      const out = (wr.x - o.x) / sw * (side === 'L' ? -1 : 1), up = (o.y - wr.y) / sw, tow = -(wr.z - o.z) / sw;
+      if (out > 0.5 && out > tow * 0.7 && Math.abs(up) < 0.7) return 'hook';
+    }
+    return side === 'L' ? 'jab' : 'cross';
+  };
+
+  // 1) straights, hooks and twin palms: each guard → extended transition counts once
   for (const side of ['L', 'R']) {
     const A = T.arms[side], O = T.arms[side === 'L' ? 'R' : 'L'], os = side === 'L' ? 'R' : 'L';
     const on = T.prof.on[side], off = T.prof.off[side];
@@ -208,21 +222,62 @@ function trackPose(res, now, dt, info) {
       A.on = true; A.onT = now;
       const raising = el.y < sh.y - 0.25 * sw || wr.y < n.y - 0.1 * sw || A.rise > 0.2;
       const together = O.on && now - O.onT < 160;
-      if (ok && !suppressAll && !raising && !together && !T.hands.held[side] && now - A.last > 110) {
+      if (together) {
+        const had = T.pending.find(p => p.side === os);
+        T.pending = T.pending.filter(p => p.side !== os);
+        if (had && !suppressAll && B.handsDist < 1.1 && !raising) { A.last = O.last = now; fire('twin'); }
+      } else if (ok && !suppressAll && !raising && !T.hands.held[side] && now - A.last > 110 && now - A.upT > 250) {
         A.last = now;
-        if (!O.on && O.e > T.prof.off[os]) T.pending.push({ side, t: now });
-        else { T.events.push('punch'); T.punchTimes.push(now); }
+        const kind = classify(side);
+        if (!O.on && O.e > T.prof.off[os]) T.pending.push({ side, t: now, kind });
+        else fire(kind);
       }
-      if (together) T.pending = T.pending.filter(p => p.side !== os);
     } else if (A.on && A.e < off) A.on = false;
   }
   for (const p of T.pending) {
-    const O = T.arms[p.side === 'L' ? 'R' : 'L'], os = p.side === 'L' ? 'R' : 'L';
-    if (O.on && O.onT >= p.t - 5) p.cancel = true;                       // other arm launched too: gesture
-    else if (now - p.t >= 80 || O.e < T.prof.off[os]) { p.done = true; T.events.push('punch'); T.punchTimes.push(now); }
+    const os = p.side === 'L' ? 'R' : 'L', O = T.arms[os];
     if (suppressAll) p.cancel = true;
+    else if (now - p.t >= 80 || O.e < T.prof.off[os]) { p.done = true; fire(p.kind); }
   }
   T.pending = T.pending.filter(p => !p.done && !p.cancel);
+
+  // 2) uppercut: the fist rises fast from shoulder height or lower and stops around the chin.
+  //    Confirmed 70 ms later so an arm going all the way overhead (a gesture) doesn't count.
+  // 3) hammer: one arm comes down fast from above the head.
+  for (const side of ['L', 'R']) {
+    const A = T.arms[side], O = T.arms[side === 'L' ? 'R' : 'L'], { sh, el, wr, ok } = armParts(side);
+    if (!ok || suppressAll || T.hands.held[side]) { A.upPend = null; continue; }
+    if (A.upPend) {
+      if (wr.y < n.y - 0.55 * sw || O.rise > 0.3) A.upPend = null;
+      else if (now - A.upPend >= 70) { A.upPend = null; A.upT = now; A.last = now; fire('upper'); }
+      continue;
+    }
+    const w = A.wh.filter(q => now - q.t <= 240);
+    if (w.length >= 3) {
+      const lowest = Math.max(...w.map(q => q.y));
+      const rose = (lowest - wr.y) / sw;
+      if (rose > 0.5 && lowest > sh.y - 0.05 * sw && wr.y < sh.y && wr.y > n.y - 0.55 * sw && el.y > wr.y
+          && Math.abs(wr.x - shX) < 1.1 * sw && now - A.upT > 300 && now - A.last > 150 && now - A.chopT > 500) A.upPend = now;
+    }
+    const w2 = A.wh.filter(q => now - q.t <= 380);
+    if (w2.length >= 3 && now - A.chopT > 400) {
+      const highest = Math.min(...w2.map(q => q.y));
+      const oHigh = O.wh && O.wh.length ? Math.min(...O.wh.filter(q => now - q.t <= 380).map(q => q.y).concat([1e9])) : 1e9;
+      if (highest < n.y - 0.3 * sw && wr.y > sh.y + 0.05 * sw && (wr.y - highest) / sw > 0.9 && oHigh > n.y - 0.2 * sw) {
+        A.chopT = now; A.last = now; fire('chop');
+      }
+    }
+  }
+
+  // 4) knee: a knee comes up toward the hip (only when your legs are in frame)
+  T.knees = T.knees || { L: { h: [], last: -1e9 }, R: { h: [], last: -1e9 } };
+  for (const [kn, hp, key] of [[F.kl, F.hl, 'L'], [F.kr, F.hr, 'R']]) {
+    const K = T.knees[key];
+    if (kn.v < 0.5 || hp.v < 0.5) { K.h.length = 0; continue; }
+    K.h.push({ t: now, d: (kn.y - hp.y) / sw }); while (K.h.length && now - K.h[0].t > 300) K.h.shift();
+    const maxD = Math.max(...K.h.map(q => q.d)), d = (kn.y - hp.y) / sw;
+    if (maxD - d > 0.55 && d < 0.6 && now - K.last > 450 && !suppressAll) { K.last = now; fire('knee'); }
+  }
   if (info.fight && T.binds.flurry) { if (stepGesture('flurry', T.binds.flurry, dt, now)) T.specialLock = now + 300; }
 
   T.guard = T.crossT > 0.08;

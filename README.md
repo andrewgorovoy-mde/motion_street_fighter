@@ -40,7 +40,12 @@ Hold the phone in one hand. Steer with your thumb. The buttons are Vanish, Rush,
 
 | Move | How |
 |---|---|
-| Punch / blast | Snap a punch. Close up it hits; at range it fires a ki blast |
+| Jab / Cross | Left / right hand straight at the screen |
+| Hook | Swing a fist out to the side and around |
+| Uppercut | Drive a fist up from your waist to your chin |
+| Hammer | Bring one fist down fast from above your head |
+| Twin Palm | Thrust both hands forward together |
+| Knee | Raise a knee fast (needs your legs in frame) |
 | Guard | Cross your forearms in front of your face |
 | Charge ki | Drop both fists to your hips |
 | Transform | With a full Surge meter, hold the charge pose for a second |
@@ -49,10 +54,28 @@ Hold the phone in one hand. Steer with your thumb. The buttons are Vanish, Rush,
 | Blink | Hop (up) or slip sideways (left/right) |
 | Specials | Each fighter's gestures and hand signs are listed in the menu |
 
+Up close strikes hit; at range most of them fire a ki shot.
+
+### Combos (every fighter)
+
+Chain strikes less than a second apart. If your rival is out of reach, you dash in for the finisher.
+
+| Combo | Strikes |
+|---|---|
+| Rapid Barrage | Jab, Jab, Jab, Jab |
+| Triple Strike | Jab, Jab, Cross |
+| Whirlwind Hook | Jab, Cross, Hook (breaks guard) |
+| Ki Detonation | Any, Any, Twin Palm |
+| Rising Fang | Cross, Uppercut |
+| Sky Launcher | Hook, Uppercut (launches; air hits do 40% more) |
+| Meteor Smash | Uppercut, Hammer (ground bounce) |
+| Guard Crusher | Hook, Hook |
+| Knee Lift | Knee, Uppercut |
+
 First time with the camera, the game asks you to hold your guard and throw 5 punches with each hand. It learns your punch from that and saves it in the browser.
 
 ## Keyboard
 
-`WASD` move · `J` punch · `K` guard · `L` charge · `Q` vanish · `E` rush · `Space` blink · `U` / `O` specials · `I` ultimate · `P` super · `T` transform · `M` mute · `N` next song · `Esc` menu
+`WASD` move · `J` jab · `K` cross · `L` hook · `I` uppercut · `U` hammer · `H` knee · `Y` twin palm · `G` guard · `C` charge · `Q` vanish · `E` rush · `Space` blink · `1`–`4` specials · `T` transform · `M` mute · `]` next song · `Esc` menu
 
-A gamepad also works: left stick moves, A punches, B vanishes, Y rushes, X guards.
+A gamepad also works: left stick moves, A jab, X cross, Y hook, B uppercut, LB guard, RB vanish, LT/RT specials.

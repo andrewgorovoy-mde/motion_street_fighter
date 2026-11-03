@@ -54,7 +54,7 @@ const CHARS = [
     c: { gi: '#c2361f', gi2: '#83210f', trim: '#1b1b1b', pants: '#2a1a1a', pants2: '#1a0f0f', boots: '#d6a24a', skin: '#c98d62', skinD: '#956240',
       bg: '#5a1d12', hair: ['#8a2410', '#ff6a2a', '#ffe08a'], hairD: ['#4a1006', '#b8300c', '#ff8a2a'], aura: ['#ff7a2a', '#ff9a2a', '#fff2b0'], aura2: ['#b8300c', '#ffd04a', '#ff6a2a'], eye: ['#2a1206', '#ffb02a', '#fff2b0'] },
     moves: {
-      s1: mv('volley', 'Cinder Volley', G('flurry'), 25, 0, 'Seven homing fireballs fan out at your rival.'),
+      s1: mv('volley', 'Cinder Volley', G('xburst'), 25, 0, 'Seven homing fireballs fan out at your rival.'),
       s2: mv('flamewall', 'Flame Wall', S('palm'), 25, 0, 'A wall of fire that burns through incoming blasts.'),
       ult: mv('phoenix', 'Phoenix Dive', G('tpose'), 60, 1, 'Become a firebird and crash straight through your rival.'),
       sup: mv('solarcore', 'Solar Core', SEAL('gun', 'V'), 90, 2, 'Forge a tiny sun and detonate it on your rival.'),
@@ -132,7 +132,7 @@ const CHARS = [
     c: { gi: '#6b7480', gi2: '#454c56', trim: '#ff8a1a', pants: '#3a4048', pants2: '#262a30', boots: '#2a2e34', skin: '#b5bcc6', skinD: '#7d858f',
       bg: '#2a2e34', hair: ['#6b7480', '#ff8a1a', '#ff3a2a'], hairD: ['#454c56', '#b85a0a', '#a81a10'], aura: ['#ffb02a', '#ff8a1a', '#ff3a2a'], aura2: ['#6b7480', '#ffb02a', '#ff8a1a'], eye: ['#ff8a1a', '#ffd04a', '#ff3a2a'] },
     moves: {
-      s1: mv('missiles', 'Missile Swarm', G('flurry'), 25, 0, 'Eight homing missiles launch from your back.'),
+      s1: mv('missiles', 'Missile Swarm', G('oneup'), 25, 0, 'Eight homing missiles launch from your back.'),
       s2: mv('mine', 'Grav Mine', S('gun'), 20, 0, 'Plant a mine that pulls your rival in and explodes.'),
       ult: mv('railcannon', 'Rail Cannon', G('palms'), 60, 1, 'An enormous piercing beam. It ignores half of a guard.'),
       sup: mv('orbital', 'Orbital Strike', SEAL('V', 'palm'), 90, 2, 'A satellite fires a sky-wide laser that tracks your rival.'),
